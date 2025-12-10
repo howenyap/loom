@@ -1,4 +1,4 @@
-use std::{fmt, path::Display};
+use std::fmt;
 
 pub struct Http;
 
@@ -9,6 +9,12 @@ pub struct Http;
  * message-body
  */
 
+struct Request {
+    method: Method,
+    request_uri: String,
+    version: Version,
+}
+
 /*
  * HTTP Response Structure:
  * HTTP-Version Status-Code Reason-Phrase CRLF
@@ -16,14 +22,28 @@ pub struct Http;
  * message-body
  */
 
+struct Response {
+    method: Method,
+    request_uri: String,
+    version: Version,
+}
+
+enum Version {
+    OnePointOne,
+}
+
+enum Method {
+    Get,
+}
+
 enum StatusCode {
-    OK,
+    Ok,
 }
 
 impl Into<u32> for StatusCode {
     fn into(self) -> u32 {
         match self {
-            Self::OK => 200,
+            Self::Ok => 200,
         }
     }
 }
@@ -31,7 +51,7 @@ impl Into<u32> for StatusCode {
 impl fmt::Display for StatusCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            Self::OK => "OK",
+            Self::Ok => "OK",
         };
 
         write!(f, "{s}")
