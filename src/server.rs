@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream};
 
@@ -32,7 +33,12 @@ impl Server {
         let s = String::from_utf8_lossy(&buffer);
         println!("{s}");
 
-        let response = "HTTP/1.1 200 OK\r\n\r\n";
+        let contents = fs::read_to_string("hello.html").expect("failed to read hello.html");
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+            contents.len(),
+            contents
+        );
         stream
             .write(response.as_bytes())
             .expect("failed to write response to stream");
