@@ -3,6 +3,7 @@ use std::net::{TcpListener, TcpStream};
 use std::time::Duration;
 use std::{fs, thread};
 
+use crate::http::Request;
 use crate::threadpool::ThreadPool;
 
 #[derive(Default)]
@@ -21,7 +22,7 @@ impl Server {
         let address = listener.local_addr().expect("failed to get socket address");
         println!("Binded to {address}");
 
-        for stream in listener.incoming().take(1) {
+        for stream in listener.incoming() {
             let stream = stream.expect("failed to read stream");
 
             pool.execute(|| Self::handle_connection(stream));
@@ -32,20 +33,24 @@ impl Server {
 
     fn handle_connection(mut stream: TcpStream) {
         let mut buffer = [0; 1024];
-        stream
+        let n = stream
             .read(&mut buffer)
             .expect("failed to read stream to buffer");
 
-        let get = b"GET / HTTP/1.1\r\n";
-        let sleep = b"GET /sleep HTTP/1.1\r\n";
+        let ok_pair = ("HTTP/1.1 200 OK", "hello.html");
+        let error_pair = ("HTTP/1.1 404 NOT FOUND", "404.html");
 
-        let (status_line, filename) = if buffer.starts_with(get) {
-            ("HTTP/1.1 200 OK", "hello.html")
-        } else if buffer.starts_with(sleep) {
-            thread::sleep(Duration::from_secs(5));
-            ("HTTP/1.1 200 OK", "hello.html")
+        let (status_line, filename) = if let Ok(request) = Request::from_buffer(&buffer[..n]) {
+            match request.uri() {
+                "/" => ok_pair,
+                "/sleep" => {
+                    thread::sleep(Duration::from_secs(5));
+                    ok_pair
+                }
+                _ => error_pair,
+            }
         } else {
-            ("HTTP/1.1 404 NOT FOUND", "404.html")
+            error_pair
         };
 
         let contents = fs::read_to_string(filename).expect("failed to read response file");
