@@ -21,7 +21,7 @@ impl Server {
         let address = listener.local_addr().expect("failed to get socket address");
         println!("Binded to {address}");
 
-        for stream in listener.incoming() {
+        for stream in listener.incoming().take(1) {
             let stream = stream.expect("failed to read stream");
 
             pool.execute(|| Self::handle_connection(stream));

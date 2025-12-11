@@ -8,7 +8,7 @@ use std::{
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: Sender<Job>,
+    sender: Option<Sender<Job>>,
 }
 
 impl ThreadPool {
@@ -16,6 +16,7 @@ impl ThreadPool {
         assert!(size > 0);
 
         let (sender, receiver) = mpsc::channel();
+        let sender = Some(sender);
         let receiver = Arc::new(Mutex::new(receiver));
         let workers: Vec<_> = (0..size)
             .map(|id| Worker::new(id, receiver.clone()))
@@ -29,7 +30,11 @@ impl ThreadPool {
         F: FnOnce() + Send + 'static,
     {
         let job = Box::new(f);
-        self.sender.send(job).expect("failed to send job");
+        self.sender
+            .as_ref()
+            .unwrap()
+            .send(job)
+            .expect("failed to send job");
     }
 }
 
@@ -42,15 +47,18 @@ impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<Receiver<Job>>>) -> Self {
         let thread = thread::spawn(move || {
             loop {
-                let job = receiver
-                    .lock()
-                    .unwrap()
-                    .recv()
-                    .expect("failed to receive job");
+                let message = receiver.lock().unwrap().recv();
 
-                println!("Worker {id} got a job; executing");
-
-                job();
+                match message {
+                    Ok(job) => {
+                        println!("Worker {id} got a job; executing.");
+                        job();
+                    }
+                    Err(_) => {
+                        println!("Worker {id} disconnected; shutting down.");
+                        break;
+                    }
+                }
             }
         });
 
@@ -59,3 +67,15 @@ impl Worker {
 }
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        drop(self.sender.take());
+
+        for worker in self.workers.drain(..) {
+            println!("Shutting down worker {}", worker.id);
+
+            worker.thread.join().expect("failed to shutdown worker")
+        }
+    }
+}
