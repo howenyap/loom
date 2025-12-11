@@ -40,10 +40,10 @@ enum StatusCode {
     Ok,
 }
 
-impl Into<u32> for StatusCode {
-    fn into(self) -> u32 {
-        match self {
-            Self::Ok => 200,
+impl From<StatusCode> for u32 {
+    fn from(value: StatusCode) -> Self {
+        match value {
+            StatusCode::Ok => 200,
         }
     }
 }
